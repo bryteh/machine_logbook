@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .success { color: #28a745; }
+        .loading { color: #007bff; }
+        .error { color: #dc3545; }
+        .api-test {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Machine Maintenance Logbook - Test Page</h1>
+        <p class="success">✅ HTML is loading correctly!</p>
+        <p class="success">✅ CSS is working!</p>
+        
+        <div class="api-test">
+            <h3>API Connection Test:</h3>
+            <p id="api-status" class="loading">🔄 Testing API connection...</p>
+            <div id="api-results"></div>
+        </div>
+        
+        <h3>Expected Features:</h3>
+        <ul>
+            <li>Dashboard with manufacturing metrics</li>
+            <li>Issue logging and tracking</li>
+            <li>Machine and department management</li>
+            <li>File attachment support</li>
+            <li>AI-powered summaries</li>
+        </ul>
+    </div>
+
+    <script>
+        // Test API connection
+        async function testAPI() {
+            const apiStatus = document.getElementById('api-status');
+            const apiResults = document.getElementById('api-results');
+            
+            try {
+                // Test departments endpoint
+                const response = await fetch('http://127.0.0.1:8000/api/departments/');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    apiStatus.innerHTML = '✅ API connection successful!';
+                    apiStatus.className = 'success';
+                    
+                    apiResults.innerHTML = `
+                        <h4>Sample Data:</h4>
+                        <p><strong>Found ${data.count} departments:</strong></p>
+                        <ul>
+                            ${data.results.slice(0, 3).map(dept => 
+                                `<li>${dept.department_id}: ${dept.name}</li>`
+                            ).join('')}
+                        </ul>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                apiStatus.innerHTML = '❌ API connection failed!';
+                apiStatus.className = 'error';
+                apiResults.innerHTML = `<p><strong>Error:</strong> ${error.message}</p>`;
+            }
+        }
+        
+        // Run API test when page loads
+        testAPI();
+    </script>
+</body>
+</html> 

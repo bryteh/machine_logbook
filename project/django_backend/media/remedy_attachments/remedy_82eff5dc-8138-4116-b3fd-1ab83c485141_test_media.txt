@@ -1,0 +1,3 @@
+Test remedy media file for remedy 82eff5dc-8138-4116-b3fd-1ab83c485141
+Description: "Replace the turret. The machine is making a loud noise, indicating that the pump needs to be replaced. Even adding a small amount of oil is ineffective; the pump must be replaced entirely."
+Created for testing media display.

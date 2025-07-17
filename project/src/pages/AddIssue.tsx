@@ -236,12 +236,12 @@ Remember: The more detailed and specific your description, the faster technician
       // Upload attachments if any
       if (attachments.length > 0) {
         for (const file of attachments) {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('file_type', file.type.startsWith('image/') ? 'image' : 'video');
-          formData.append('purpose', 'alarm_screen');
+          const attachmentFormData = new FormData();
+          attachmentFormData.append('file', file);
+          attachmentFormData.append('file_type', file.type.startsWith('image/') ? 'image' : 'video');
+          attachmentFormData.append('purpose', 'alarm_screen');
 
-          await api.post(`/issues/${issueId}/attachments/`, formData, {
+          await api.post(`/issues/${issueId}/add_attachment/`, attachmentFormData, {
             headers: {
               'Content-Type': 'multipart/form-data',
             },
@@ -366,12 +366,14 @@ Remember: The more detailed and specific your description, the faster technician
                   required
                 >
                   <option value="">Select category</option>
+                  <option value="alarm">Alarm</option>
                   <option value="mechanical">Mechanical</option>
                   <option value="electrical">Electrical</option>
-                  <option value="software">Software</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="calibration">Calibration</option>
-                  <option value="safety">Safety</option>
+                  <option value="quality">Quality</option>
+                  <option value="process">Process</option>
+                  <option value="material_issue">Material Issue</option>
+                  <option value="machine_setup">Machine Setup</option>
+                  <option value="no_planning">No Planning</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -508,20 +510,20 @@ Remember: The more detailed and specific your description, the faster technician
                   <div className="mt-4">
                     <label htmlFor="file-upload" className="cursor-pointer">
                       <span className="mt-2 block text-sm font-medium text-gray-900">
-                        Upload alarm screen or machine photos
+                        Upload machine photos or videos
                       </span>
                       <input
                         id="file-upload"
                         name="file-upload"
                         type="file"
                         multiple
-                        accept="image/*,video/*"
+                        accept="image/*,video/*,.heic,.HEIC"
                         onChange={handleFileChange}
                         className="sr-only"
                       />
                     </label>
                     <p className="mt-1 text-xs text-gray-500">
-                      PNG, JPG, MP4 up to 10MB each
+                      PNG, JPG, HEIC, MP4 up to 50MB each (max 10 files). HEIC files will be converted to JPEG.
                     </p>
                   </div>
                 </div>
@@ -572,4 +574,4 @@ Remember: The more detailed and specific your description, the faster technician
   );
 };
 
-export default AddIssue; 
+export default AddIssue;

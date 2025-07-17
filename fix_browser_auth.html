@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authentication Fix Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        button { background: #007cba; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #005a87; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        #results { margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Authentication Fix Tool</h1>
+        
+        <div class="section">
+            <h2>Step 1: Clear Browser Cookies</h2>
+            <p class="warning">This will clear all cookies for 127.0.0.1 domain</p>
+            <button onclick="clearCookies()">Clear All Cookies</button>
+            <div id="cookie-status"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Step 2: Test Direct Login</h2>
+            <div>
+                <input type="text" id="username" placeholder="Username" value="admin">
+                <input type="password" id="password" placeholder="Password" value="admin123">
+                <button onclick="testLogin()">Test Login</button>
+            </div>
+            <div id="login-results"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Step 3: Test Dashboard API</h2>
+            <button onclick="testDashboard()">Test Dashboard API</button>
+            <div id="dashboard-results"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Step 4: View Current Cookies</h2>
+            <button onclick="showCookies()">Show Current Cookies</button>
+            <div id="cookies-display"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Instructions</h2>
+            <ol>
+                <li><strong>Clear cookies</strong> first to reset authentication state</li>
+                <li><strong>Test login</strong> to establish new session</li>
+                <li><strong>Test dashboard</strong> to verify it works</li>
+                <li>Go back to your React app at <a href="http://127.0.0.1:5173" target="_blank">http://127.0.0.1:5173</a> and login again</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+        
+        function clearCookies() {
+            // Clear cookies for the current domain
+            document.cookie.split(";").forEach(function(c) { 
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+            });
+            
+            // Also try to clear for 127.0.0.1 specifically
+            const cookies = ['sessionid', 'csrftoken'];
+            cookies.forEach(name => {
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=127.0.0.1`;
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.127.0.0.1`;
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+            });
+            
+            document.getElementById('cookie-status').innerHTML = '<span class="success">✅ Cookies cleared! Refresh page to confirm.</span>';
+        }
+        
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const resultsDiv = document.getElementById('login-results');
+            
+            try {
+                resultsDiv.innerHTML = '🔄 Testing login...';
+                
+                const response = await fetch(`${API_BASE}/auth/login/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultsDiv.innerHTML = `<span class="success">✅ Login successful!</span>
+                        <div>User: ${data.user.username}</div>
+                        <div>Superuser: ${data.user.is_superuser}</div>`;
+                } else {
+                    resultsDiv.innerHTML = `<span class="error">❌ Login failed: ${response.status}</span>
+                        <div>${JSON.stringify(data, null, 2)}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<span class="error">❌ Network error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testDashboard() {
+            const resultsDiv = document.getElementById('dashboard-results');
+            
+            try {
+                resultsDiv.innerHTML = '🔄 Testing dashboard API...';
+                
+                const response = await fetch(`${API_BASE}/dashboard/metrics/?days=30`, {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultsDiv.innerHTML = `<span class="success">✅ Dashboard API works!</span>
+                        <div>Total issues: ${data.total_issues}</div>
+                        <div>Open issues: ${data.open_issues}</div>`;
+                } else {
+                    resultsDiv.innerHTML = `<span class="error">❌ Dashboard failed: ${response.status}</span>
+                        <div>${JSON.stringify(data, null, 2)}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<span class="error">❌ Network error: ${error.message}</span>`;
+            }
+        }
+        
+        function showCookies() {
+            const cookiesDiv = document.getElementById('cookies-display');
+            const cookies = document.cookie;
+            
+            if (cookies) {
+                cookiesDiv.innerHTML = `<div id="results">${cookies}</div>`;
+            } else {
+                cookiesDiv.innerHTML = '<span class="warning">No cookies found</span>';
+            }
+        }
+        
+        // Auto-show current cookies on page load
+        document.addEventListener('DOMContentLoaded', showCookies);
+    </script>
+</body>
+</html> 

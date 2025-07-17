@@ -20,7 +20,10 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({ attachments, title = "Media
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
+  
+
   if (!attachments || attachments.length === 0) {
+    console.log(`MediaDisplay - ${title}: No attachments to display`);
     return null;
   }
 
@@ -63,11 +66,26 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({ attachments, title = "Media
   const getFileUrl = (attachment: Attachment) => {
     // Ensure the URL is properly formatted
     let url = attachment.file_url;
-    if (url && !url.startsWith('http') && !url.startsWith('/')) {
-      // If it's a relative path, make it absolute
-      url = `http://127.0.0.1:8000${url.startsWith('/') ? '' : '/'}${url}`;
+    
+    if (!url) return '';
+    
+    // If the URL is already absolute, return it as is
+    if (url.startsWith('http')) {
+      return url;
     }
-    return url;
+    
+    // If it's a relative path starting with /media/, construct full URL
+    if (url.startsWith('/media/')) {
+      return `http://127.0.0.1:8000${url}`;
+    }
+    
+    // If it's just a filename or relative path, prepend the media URL
+    if (!url.startsWith('/')) {
+      return `http://127.0.0.1:8000/media/${url}`;
+    }
+    
+    // Default case - ensure it has the backend URL
+    return `http://127.0.0.1:8000${url}`;
   };
 
   return (
@@ -277,4 +295,4 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({ attachments, title = "Media
   );
 };
 
-export default MediaDisplay; 
+export default MediaDisplay;

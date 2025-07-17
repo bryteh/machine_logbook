@@ -1,18 +1,32 @@
-# Database Configuration
-DB_NAME=erabase_db
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
-DB_HOST=localhost
+# Database Configuration - Supabase PostgreSQL
+DB_NAME=postgres
+DB_USER=postgres
+DB_PASSWORD=your_supabase_db_password
+DB_HOST=your_supabase_host.supabase.co
 DB_PORT=5432
+
+# Supabase Configuration
+SUPABASE_URL=https://your_project_id.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# Supabase Storage Configuration
+SUPABASE_STORAGE_BUCKET_NAME=machine-maintenance-media
+AWS_ACCESS_KEY_ID=your_supabase_access_key
+AWS_SECRET_ACCESS_KEY=your_supabase_secret_key
+AWS_STORAGE_BUCKET_NAME=machine-maintenance-media
+AWS_S3_ENDPOINT_URL=https://your_project_id.supabase.co/storage/v1/s3
+AWS_S3_REGION_NAME=us-east-1
+AWS_DEFAULT_ACL=public-read
 
 # Django Configuration
 SECRET_KEY=your-secret-key-here
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
+DEBUG=False
+ALLOWED_HOSTS=localhost,127.0.0.1,your-domain.com
 
 # OpenAI Configuration
 OPENAI_API_KEY=your-openai-api-key-here
 
-# Media Configuration
-MEDIA_ROOT=media/
-MEDIA_URL=/media/ 
+# Media Configuration (will use Supabase Storage)
+MEDIA_URL=https://your_project_id.supabase.co/storage/v1/object/public/machine-maintenance-media/
+USE_S3=True 

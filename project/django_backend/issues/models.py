@@ -2,24 +2,143 @@ import uuid
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+import uuid
+
+
+class Permission(models.Model):
+    """Individual permissions that can be granted"""
+    name = models.CharField(max_length=50, unique=True)
+    codename = models.CharField(max_length=50, unique=True)  # e.g., 'view_dashboard'
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=30, default='general')  # group permissions
+    
+    class Meta:
+        ordering = ['category', 'name']
+    
+    def __str__(self):
+        return self.name
+
+
+class Role(models.Model):
+    """Configurable roles with dynamic permissions"""
+    name = models.CharField(max_length=50, unique=True)
+    codename = models.CharField(max_length=50, unique=True)  # e.g., 'admin'
+    description = models.TextField(blank=True)
+    permissions = models.ManyToManyField(Permission, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_public_role = models.BooleanField(default=False)  # for unauthenticated users
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+    
+    def has_permission(self, permission_codename):
+        """Check if role has a specific permission"""
+        return self.permissions.filter(codename=permission_codename).exists()
 
 
 class UserRole(models.Model):
-    ROLE_CHOICES = [
-        ('admin', 'Administrator'),
-        ('manager', 'Manager'),
-        ('technician', 'Technician'),
-        ('viewer', 'Viewer'),
-    ]
-    
+    """Link users to roles with optional individual overrides"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='role')
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='viewer')
+    role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    
+    # Individual permission overrides (JSON format)
+    permission_overrides = models.JSONField(
+        default=dict, 
+        blank=True,
+        help_text="Individual permission overrides: {permission_codename: true/false}"
+    )
+    
+    # Legacy fields for compatibility
     can_view_costs = models.BooleanField(default=False)
     can_view_external_contacts = models.BooleanField(default=False)
-    department_access = models.ManyToManyField('ManufacturingDepartment', blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.user.username} - {self.role}"
+        return f"{self.user.username} - {self.role.name}"
+    
+    def has_permission(self, permission_codename):
+        """Check if user has specific permission (override > role > default)"""
+        # Check individual override first
+        if permission_codename in self.permission_overrides:
+            return self.permission_overrides[permission_codename]
+        
+        # Check role permission
+        return self.role.has_permission(permission_codename)
+    
+    def get_all_permissions(self):
+        """Get all permissions for this user (role + overrides)"""
+        role_permissions = set(self.role.permissions.values_list('codename', flat=True))
+        
+        # Apply overrides
+        for perm, granted in self.permission_overrides.items():
+            if granted:
+                role_permissions.add(perm)
+            else:
+                role_permissions.discard(perm)
+        
+        return list(role_permissions)
+
+
+class PublicRole(models.Model):
+    """Special model to define what public (unauthenticated) users can do"""
+    permissions = models.ManyToManyField(Permission, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = "Public Access Permissions"
+        verbose_name_plural = "Public Access Permissions"
+    
+    def save(self, *args, **kwargs):
+        self.pk = 1  # Singleton
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+    
+    def has_permission(self, permission_codename):
+        return self.permissions.filter(codename=permission_codename).exists()
+
+
+class GlobalSettings(models.Model):
+    """Singleton pattern for global settings"""
+    id = models.BooleanField(primary_key=True, default=True)
+    
+    # Configurable limits
+    max_update_text_length = models.IntegerField(default=2000)
+    max_attachments_per_issue = models.IntegerField(default=10)
+    max_attachments_per_remedy = models.IntegerField(default=5)
+    max_video_resolution_height = models.IntegerField(default=720)
+    max_video_quality_crf = models.IntegerField(default=28)
+    max_file_size_mb = models.IntegerField(default=50)
+    
+    # System information
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        verbose_name = "Global Settings"
+        verbose_name_plural = "Global Settings"
+    
+    def save(self, *args, **kwargs):
+        self.pk = True
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        pass  # Prevent deletion
+    
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=True)
+        return obj
 
 
 class ManufacturingDepartment(models.Model):
@@ -74,12 +193,14 @@ class Issue(models.Model):
     ]
     
     CATEGORY_CHOICES = [
+        ('alarm', 'Alarm'),
         ('mechanical', 'Mechanical'),
         ('electrical', 'Electrical'),
-        ('software', 'Software'),
-        ('maintenance', 'Maintenance'),
-        ('calibration', 'Calibration'),
-        ('safety', 'Safety'),
+        ('quality', 'Quality'),
+        ('process', 'Process'),
+        ('material_issue', 'Material Issue'),
+        ('machine_setup', 'Machine Setup'),
+        ('no_planning', 'No Planning'),
         ('other', 'Other'),
     ]
     
@@ -212,6 +333,17 @@ class Issue(models.Model):
         return f"{self.auto_title or 'Issue'} - {self.machine_id_ref}"
     
     def save(self, *args, **kwargs):
+        is_new = not self.pk
+        old_status = None
+        
+        # Get old status if updating
+        if not is_new:
+            try:
+                old_issue = Issue.objects.get(pk=self.pk)
+                old_status = old_issue.status
+            except Issue.DoesNotExist:
+                pass
+        
         # Start downtime tracking when issue is created and machine is not runnable
         if not self.pk and not self.is_runnable and not self.downtime_start:
             self.downtime_start = timezone.now()
@@ -241,6 +373,26 @@ class Issue(models.Model):
             self.auto_title = f"{self.category.title()} Issue - {self.machine_id_ref}"
         
         super().save(*args, **kwargs)
+        
+        # Log audit events after save
+        if is_new:
+            # Log issue creation
+            AuditLog.log_activity(
+                user=None,  # Will be set by view when available
+                action='issue_created',
+                description=f'New issue created: {self.auto_title} for machine {self.machine_id_ref}',
+                issue=self
+            )
+        elif old_status and old_status != self.status:
+            # Log status change
+            AuditLog.log_activity(
+                user=None,  # Will be set by view when available
+                action='status_changed' if self.status != 'resolved' else 'issue_resolved',
+                description=f'Issue status changed from {old_status} to {self.status} for {self.auto_title}',
+                issue=self,
+                old_status=old_status,
+                new_status=self.status
+            )
 
 
 class Remedy(models.Model):
@@ -347,4 +499,81 @@ class Attachment(models.Model):
     def file_url(self):
         if self.file:
             return self.file.url
-        return None 
+        return None
+
+
+class AuditLog(models.Model):
+    """Audit log to track user activities"""
+    ACTION_CHOICES = [
+        ('issue_created', 'Issue Created'),
+        ('issue_updated', 'Issue Updated'),
+        ('issue_resolved', 'Issue Resolved'),
+        ('issue_reopened', 'Issue Reopened'),
+        ('remedy_added', 'Remedy Added'),
+        ('remedy_updated', 'Remedy Updated'),
+        ('remedy_deleted', 'Remedy Deleted'),
+        ('report_generated', 'Report Generated'),
+        ('status_changed', 'Status Changed'),
+        ('attachment_added', 'Attachment Added'),
+        ('attachment_deleted', 'Attachment Deleted'),
+        ('user_login', 'User Login'),
+        ('user_logout', 'User Logout'),
+        ('permission_changed', 'Permission Changed'),
+        ('other', 'Other'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    description = models.TextField()
+    
+    # Related objects (optional)
+    issue = models.ForeignKey('Issue', on_delete=models.SET_NULL, null=True, blank=True)
+    remedy = models.ForeignKey('Remedy', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Additional metadata
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)  # For additional data
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['action', '-created_at']),
+            models.Index(fields=['issue', '-created_at']),
+        ]
+    
+    def __str__(self):
+        user_name = self.user.username if self.user else "Anonymous"
+        return f"{user_name} - {self.get_action_display()} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+    
+    @classmethod
+    def log_activity(cls, user, action, description, issue=None, remedy=None, request=None, **metadata):
+        """Helper method to create audit log entries"""
+        ip_address = None
+        user_agent = ""
+        
+        if request:
+            # Get IP address
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip_address = x_forwarded_for.split(',')[0]
+            else:
+                ip_address = request.META.get('REMOTE_ADDR')
+            
+            # Get user agent
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+        
+        return cls.objects.create(
+            user=user,
+            action=action,
+            description=description,
+            issue=issue,
+            remedy=remedy,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata=metadata
+        )

@@ -92,23 +92,31 @@ class RemedySerializer(serializers.ModelSerializer):
         return obj.phone_number
     
     def get_cost_display(self, obj):
-        """Hide costs based on user permissions"""
-        request = self.context.get('request')
-        if not request or not request.user.is_authenticated:
-            return None
-        
-        try:
-            user_role = request.user.role
-            if not user_role.can_view_costs:
-                return None
-        except UserRole.DoesNotExist:
-            return None
-        
+        """Show costs for debugging - temporarily disabled permission check"""
+        # Temporarily show costs for all users for debugging
         return {
             'labor_cost': obj.labor_cost,
             'parts_cost': obj.parts_cost,
             'total_cost': obj.total_cost
         }
+        
+        # Original permission-based code (commented out for debugging):
+        # request = self.context.get('request')
+        # if not request or not request.user.is_authenticated:
+        #     return None
+        # 
+        # try:
+        #     user_role = request.user.role
+        #     if not user_role.can_view_costs:
+        #         return None
+        # except UserRole.DoesNotExist:
+        #     return None
+        # 
+        # return {
+        #     'labor_cost': obj.labor_cost,
+        #     'parts_cost': obj.parts_cost,
+        #     'total_cost': obj.total_cost
+        # }
 
 
 class IssueListSerializer(serializers.ModelSerializer):
@@ -254,4 +262,4 @@ class DashboardMetricsSerializer(serializers.Serializer):
     avg_downtime = serializers.FloatField()
     trend_data = serializers.ListField(
         child=serializers.DictField()
-    ) 
+    )

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, Save, X, Trash2, Upload, FileImage, Video } from 'lucide-react';
+import { AlertTriangle, Save, X, Trash2, Upload, FileImage, Video, Loader } from 'lucide-react';
 import api from '../services/api';
 
 interface Machine {
@@ -48,6 +48,7 @@ const EditIssue: React.FC = () => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [deletingAttachment, setDeletingAttachment] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     department_id: '',
     machine_id: '',
@@ -59,32 +60,51 @@ const EditIssue: React.FC = () => {
     reported_by: '',
   });
 
-  const categories = ['Alarm', 'Mechanical', 'Quality', 'Process', 'Electrical', 'Other'];
+  const categories = [
+    { label: 'Alarm', value: 'alarm' },
+    { label: 'Mechanical', value: 'mechanical' },
+    { label: 'Electrical', value: 'electrical' },
+    { label: 'Material Issue', value: 'material_issue' },
+    { label: 'Machine Setup', value: 'machine_setup' },
+    { label: 'No Planning', value: 'no_planning' },
+    { label: 'Quality', value: 'quality' },
+    { label: 'Process', value: 'process' },
+    { label: 'Other', value: 'other' }
+  ];
 
   useEffect(() => {
-    loadDepartments();
-    loadMachines();
+    const loadInitialData = async () => {
+      await Promise.all([loadDepartments(), loadMachines()]);
+    };
+    loadInitialData();
   }, []);
 
   useEffect(() => {
-    if (id && machines.length > 0) {
+    if (id && machines.length > 0 && departments.length > 0) {
       loadIssue();
     }
-  }, [id, machines]);
+  }, [id, machines, departments]);
 
   useEffect(() => {
     if (formData.department_id) {
-      const filtered = machines.filter(machine => machine.department_id === formData.department_id);
-      setFilteredMachines(filtered);
+      loadMachinesByDepartment(formData.department_id);
+      // Reset machine selection when department changes (except during initial load)
+      if (!loading) {
+        setFormData(prev => ({ ...prev, machine_id: '' }));
+      }
     } else {
       setFilteredMachines([]);
+      if (!loading) {
+        setFormData(prev => ({ ...prev, machine_id: '' }));
+      }
     }
-  }, [formData.department_id, machines]);
+  }, [formData.department_id, loading]);
 
   const loadDepartments = async () => {
     try {
       const response = await api.get('/departments');
-      setDepartments(Array.isArray(response.data.results) ? response.data.results : []);
+      const departmentData = Array.isArray(response.data.results) ? response.data.results : [];
+      setDepartments(departmentData);
     } catch (error) {
       console.error('Error loading departments:', error);
     }
@@ -93,9 +113,29 @@ const EditIssue: React.FC = () => {
   const loadMachines = async () => {
     try {
       const response = await api.get('/machines');
-      setMachines(Array.isArray(response.data.results) ? response.data.results : []);
+      const machineData = Array.isArray(response.data.results) ? response.data.results : [];
+      setMachines(machineData);
     } catch (error) {
       console.error('Error loading machines:', error);
+    }
+  };
+
+  const loadMachinesByDepartment = async (departmentId: string) => {
+    try {
+      const response = await api.get(`/machines/?department_id=${departmentId}`);
+      const machineData = response.data.results || response.data || [];
+      const machines = (Array.isArray(machineData) ? machineData : [])
+        .sort((a, b) => {
+          const getNumber = (machineNumber: string) => {
+            const match = machineNumber.match(/\d+/);
+            return match ? parseInt(match[0], 10) : 0;
+          };
+          return getNumber(a.machine_number) - getNumber(b.machine_number);
+        });
+      setFilteredMachines(machines);
+    } catch (error) {
+      console.error('Error loading machines for department:', error);
+      setFilteredMachines([]);
     }
   };
 
@@ -104,9 +144,20 @@ const EditIssue: React.FC = () => {
       const response = await api.get(`/issues/${id}/`);
       const issue = response.data;
       
-      // Find the department_id from the machine
-      const machine = machines.find(m => m.machine_id === issue.machine_id_ref);
-      const department_id = machine?.department_id || '';
+      // Get department_id from the issue's machine data
+      let department_id = '';
+      if (issue.machine && issue.machine.department_id) {
+        department_id = issue.machine.department_id;
+      } else if (issue.machine_id_ref) {
+        // Fallback: find from loaded machines
+        const machine = machines.find(m => m.machine_id === issue.machine_id_ref);
+        department_id = machine?.department_id || '';
+      }
+
+      // Load machines for the department using server-side filtering
+      if (department_id) {
+        await loadMachinesByDepartment(department_id);
+      }
 
       setFormData({
         department_id,
@@ -118,6 +169,9 @@ const EditIssue: React.FC = () => {
         is_runnable: issue.is_runnable,
         reported_by: issue.reported_by || '',
       });
+      
+      // Set attachments from issue response
+      setAttachments(issue.attachments || []);
     } catch (error) {
       console.error('Error loading issue:', error);
       alert('Failed to load issue data');
@@ -164,7 +218,7 @@ const EditIssue: React.FC = () => {
           const formData = new FormData();
           formData.append('file', file);
           formData.append('file_type', file.type.startsWith('image/') ? 'image' : 'video');
-          formData.append('purpose', 'issue_update');
+          formData.append('purpose', 'other');
           return api.post(`/issues/${id}/add_attachment/`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
@@ -173,6 +227,9 @@ const EditIssue: React.FC = () => {
         try {
           await Promise.all(uploadPromises);
           console.log('All new files uploaded successfully');
+          // Clear the uploaded files
+          setFiles([]);
+          setPreviews([]);
         } catch (uploadError) {
           console.error('Error uploading files:', uploadError);
           // Still navigate even if file upload fails
@@ -193,8 +250,8 @@ const EditIssue: React.FC = () => {
     const selectedFiles = Array.from(e.target.files || []);
     const totalFiles = files.length + selectedFiles.length;
     
-    if (totalFiles > 5) {
-      alert('Maximum 5 files allowed');
+    if (totalFiles > 10) {
+      alert('Maximum 10 files allowed');
       return;
     }
 
@@ -215,21 +272,20 @@ const EditIssue: React.FC = () => {
   };
 
   const removeAttachment = async (attachmentId: string) => {
+    if (!confirm('Are you sure you want to delete this attachment?')) {
+      return;
+    }
+
+    setDeletingAttachment(attachmentId);
+    
     try {
       await api.delete(`/issues/${id}/attachments/${attachmentId}/`);
       setAttachments(prev => prev.filter(att => att.id !== attachmentId));
     } catch (error) {
       console.error('Error removing attachment:', error);
       alert('Failed to remove attachment. Please try again.');
-    }
-  };
-
-  const loadAttachments = async () => {
-    try {
-      const response = await api.get(`/issues/${id}/attachments/`);
-      setAttachments(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error('Error loading attachments:', error);
+    } finally {
+      setDeletingAttachment(null);
     }
   };
 
@@ -335,8 +391,8 @@ const EditIssue: React.FC = () => {
               >
                 <option value="">Select a category</option>
                 {categories.map(category => (
-                  <option key={category} value={category.toLowerCase()}>
-                    {category}
+                  <option key={category.value} value={category.value}>
+                    {category.label}
                   </option>
                 ))}
               </select>
@@ -453,9 +509,12 @@ const EditIssue: React.FC = () => {
                     <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                       {attachment.file_type === 'image' ? (
                         <img 
-                          src={attachment.file_url} 
+                          src={attachment.file_url.startsWith('http') ? attachment.file_url : `http://127.0.0.1:8000${attachment.file_url}`} 
                           alt={attachment.file_name}
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.error('Image failed to load:', attachment.file_url);
+                          }}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
@@ -466,9 +525,14 @@ const EditIssue: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => removeAttachment(attachment.id)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      disabled={deletingAttachment === attachment.id}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <X className="h-4 w-4" />
+                      {deletingAttachment === attachment.id ? (
+                        <Loader className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
                     </button>
                     <p className="text-xs text-gray-500 mt-1 truncate">{attachment.file_name}</p>
                   </div>
@@ -494,14 +558,14 @@ const EditIssue: React.FC = () => {
                       type="file"
                       className="sr-only"
                       multiple
-                      accept="image/*,video/*"
+                      accept="image/*,video/*,.heic,.HEIC"
                       onChange={handleFileChange}
                     />
                   </label>
                   <p className="pl-1">or drag and drop</p>
                 </div>
                 <p className="text-xs text-gray-500">
-                  Images and videos up to 10MB each (max 5 files)
+                  Images and videos up to 50MB each (max 10 files). HEIC will be converted to JPEG.
                 </p>
               </div>
             </div>
@@ -601,4 +665,4 @@ const EditIssue: React.FC = () => {
   );
 };
 
-export default EditIssue; 
+export default EditIssue;

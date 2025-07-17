@@ -1,30 +1,64 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useLocation, Outlet } from 'react-router-dom';
 import { 
   Home, 
   List, 
   Plus, 
   Wrench,
   Menu,
-  X
+  X,
+  Settings,
+  LogIn,
+  LogOut,
+  User,
+  Shield
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
+import PermissionGate from './PermissionGate';
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC = () => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const { user, logout, loading } = useAuth();
+  const { 
+    canViewDashboard, 
+    canCreateIssues, 
+    canAccessSettings,
+    getCurrentRoleName,
+    isAuthenticated,
+    isPublic
+  } = usePermissions();
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  // Show loading while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Dynamic navigation based on permissions
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'All Issues', href: '/issues', icon: List },
-    { name: 'Log New Issue', href: '/issues/new', icon: Plus },
+    ...(canViewDashboard() ? [{ name: 'Dashboard', href: '/', icon: Home }] : []),
+    { name: 'Issues', href: '/issues', icon: List },
+    ...(canCreateIssues() ? [{ name: 'New Issue', href: '/issues/new', icon: Plus }] : []),
   ];
 
   const isActive = (path: string) => {
+    if (path === '/') {
     return location.pathname === path;
+    }
+    return location.pathname.startsWith(path);
   };
 
   return (
@@ -81,6 +115,69 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 );
               })}
             </nav>
+
+            {/* Bottom section with Settings and Auth */}
+            <div className="px-4 pb-4 space-y-2">
+              <PermissionGate permissions={['configure_limits', 'manage_users']}>
+                <Link
+                  to="/settings"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive('/settings')
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Settings</span>
+                </Link>
+              </PermissionGate>
+              
+              {isAuthenticated ? (
+                <div className="border-t border-gray-200 pt-2 mt-2">
+                  <div className="px-3 py-2 text-xs">
+                    <div className="flex items-center space-x-2">
+                      <Shield className="h-3 w-3 text-blue-500" />
+                      <span className="text-gray-500">{getCurrentRoleName()}</span>
+                    </div>
+                    <div className="text-gray-700 font-medium">
+                      Hi, {user?.first_name && user?.last_name 
+                        ? `${user.first_name} ${user.last_name}` 
+                        : user?.username}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 w-full text-left transition-colors"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="border-t border-gray-200 pt-2 mt-2">
+                  <div className="px-3 py-2 text-xs">
+                    <div className="flex items-center space-x-2">
+                      <User className="h-3 w-3 text-gray-400" />
+                      <span className="text-gray-500">Public User</span>
+                    </div>
+                    <div className="text-gray-600 text-xs">Limited access</div>
+                  </div>
+                  <Link
+                    to="/login"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive('/login')
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <LogIn className="h-5 w-5" />
+                    <span>Login</span>
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -112,13 +209,74 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 );
               })}
             </nav>
+            
+            {/* Bottom section with Settings and User Info */}
+            <div className="px-4 py-4 border-t border-gray-200 space-y-2">
+              <PermissionGate permissions={['configure_limits', 'manage_users']}>
+                <Link
+                  to="/settings"
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive('/settings')
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Settings</span>
+                </Link>
+              </PermissionGate>
+
+              {isAuthenticated ? (
+                <div className="mt-2">
+                  <div className="px-3 py-2 text-xs">
+                    <div className="flex items-center space-x-2">
+                      <Shield className="h-3 w-3 text-blue-500" />
+                      <span className="text-gray-500">{getCurrentRoleName()}</span>
+                    </div>
+                    <div className="text-gray-700 font-medium">
+                      Hi, {user?.first_name && user?.last_name 
+                        ? `${user.first_name} ${user.last_name}` 
+                        : user?.username}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 w-full text-left transition-colors"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <div className="px-3 py-2 text-xs">
+                    <div className="flex items-center space-x-2">
+                      <User className="h-3 w-3 text-gray-400" />
+                      <span className="text-gray-500">Public User</span>
+                    </div>
+                    <div className="text-gray-600 text-xs">Limited access</div>
+                  </div>
+                  <Link
+                    to="/login"
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive('/login')
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <LogIn className="h-5 w-5" />
+                    <span>Login</span>
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Main content */}
         <div className="lg:pl-64 flex-1">
           <main className="flex-1">
-            {children}
+            <Outlet />
           </main>
         </div>
       </div>

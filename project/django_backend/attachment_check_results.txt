@@ -1,0 +1,81 @@
+=== Database Check ===
+Total Issues: 12
+Total Remedies: 13
+Total Attachments: 10
+Remedy Attachments: 6
+Issue Attachments: 4
+
+=== Remedy Attachment Details ===
+Attachment ID: e60214d3-d354-4faf-957a-e0eaeaa9d722
+  Remedy ID: 02b79363-cb75-40fe-b28d-5574ae19fa2f
+  File: attachments/2025/06/30/test_remedy_image.png
+  File URL: /media/attachments/2025/06/30/test_remedy_image.png
+  Type: image
+  Purpose: documentation
+  Issue ID: 59cdb011-fb5a-4e84-aa89-03fb34a8eb13
+
+Attachment ID: 59af3070-6114-4de3-8d86-a9582f247c3f
+  Remedy ID: 6edf1b04-a3f9-4528-a35d-aa0a5daba79e
+  File: remedy_attachments/remedy_6edf1b04-a3f9-4528-a35d-aa0a5daba79e_test_image.png
+  File URL: /media/remedy_attachments/remedy_6edf1b04-a3f9-4528-a35d-aa0a5daba79e_test_image.png
+  Type: image
+  Purpose: other
+  Issue ID: 5d49392a-d86f-4189-be22-4fceb5dbff87
+
+Attachment ID: fa5f2405-968a-4306-8405-1050c9739f83
+  Remedy ID: d535089a-8657-411e-a442-355b22e17953
+  File: remedy_attachments/remedy_d535089a-8657-411e-a442-355b22e17953_test_image.png
+  File URL: /media/remedy_attachments/remedy_d535089a-8657-411e-a442-355b22e17953_test_image.png
+  Type: image
+  Purpose: other
+  Issue ID: 3d2ae9c8-1c35-4b10-b5b0-e79bb13af7da
+
+Attachment ID: c0a09267-e841-45ce-8c46-f7d9442e8e2d
+  Remedy ID: 82eff5dc-8138-4116-b3fd-1ab83c485141
+  File: remedy_attachments/remedy_82eff5dc-8138-4116-b3fd-1ab83c485141_test_image.png
+  File URL: /media/remedy_attachments/remedy_82eff5dc-8138-4116-b3fd-1ab83c485141_test_image.png
+  Type: image
+  Purpose: other
+  Issue ID: e1f21f66-fbd5-4fc6-8031-97ea5f70651f
+
+Attachment ID: 717ddd26-0698-4249-b578-0bae222688fc
+  Remedy ID: 02b79363-cb75-40fe-b28d-5574ae19fa2f
+  File: remedy_attachments/remedy_02b79363-cb75-40fe-b28d-5574ae19fa2f_test.txt
+  File URL: /media/remedy_attachments/remedy_02b79363-cb75-40fe-b28d-5574ae19fa2f_test.txt
+  Type: image
+  Purpose: other
+  Issue ID: 59cdb011-fb5a-4e84-aa89-03fb34a8eb13
+
+Attachment ID: 6bf0485f-dc98-464b-91e0-4e7fe1d4c31d
+  Remedy ID: 0aa48e56-dd71-48fd-9917-cb9e73c3de6c
+  File: remedy_attachments/remedy_0aa48e56-dd71-48fd-9917-cb9e73c3de6c_test_image.png
+  File URL: /media/remedy_attachments/remedy_0aa48e56-dd71-48fd-9917-cb9e73c3de6c_test_image.png
+  Type: image
+  Purpose: documentation
+  Issue ID: 3d2ae9c8-1c35-4b10-b5b0-e79bb13af7da
+
+
+=== Direct Remedy Check ===
+Remedy ID: 82eff5dc-8138-4116-b3fd-1ab83c485141
+  Issue: Hydraulic Motor Failure Prevents Machine Operation
+  Attachments count: 1
+    - image (other): /media/remedy_attachments/remedy_82eff5dc-8138-4116-b3fd-1ab83c485141_test_image.png
+
+Remedy ID: d535089a-8657-411e-a442-355b22e17953
+  Issue: Test Issue with Valid Machine ID
+  Attachments count: 1
+    - image (other): /media/remedy_attachments/remedy_d535089a-8657-411e-a442-355b22e17953_test_image.png
+
+Remedy ID: 6edf1b04-a3f9-4528-a35d-aa0a5daba79e
+  Issue: Machine Noise Issue - Alarm Code AL-1234
+  Attachments count: 1
+    - image (other): /media/remedy_attachments/remedy_6edf1b04-a3f9-4528-a35d-aa0a5daba79e_test_image.png
+
+Remedy ID: d458ec8b-be26-4d72-aed8-386680846f28
+  Issue: Machine Noise Issue - Alarm Code AL-1234
+  Attachments count: 0
+
+Remedy ID: 93920bcf-d600-4e81-91ef-7ec3b3e37c92
+  Issue: SL567: Turret Rotation Failure Due to High Coolant Temperature
+  Attachments count: 0
+

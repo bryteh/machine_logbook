@@ -16,7 +16,8 @@ import {
   FileImage,
   Video
 } from 'lucide-react';
-import api from '../services/api';
+import api, { publicAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Issue {
   id: string;
@@ -45,6 +46,7 @@ interface RemedyFormData {
 const AddRemedy: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [issue, setIssue] = useState<Issue | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -151,17 +153,34 @@ Parts/Items Guide:
       };
 
       console.log('Submitting remedy data:', submitData);
-      const response = await api.post(`/issues/${id}/add_remedy/`, submitData);
+      console.log('User authenticated:', isAuthenticated);
+      
+      // Use appropriate API based on authentication status
+      const response = isAuthenticated 
+        ? await api.post(`/issues/${id}/remedies/`, submitData)
+        : await publicAPI.createRemedy(id!, submitData);
       console.log('Remedy created successfully:', response.data);
 
-      // Handle file uploads if there are any files
-      if (files.length > 0) {
+      // Update issue machine status (only for authenticated users, public users can't update issues)
+      if (isAuthenticated) {
+        await api.patch(`/issues/${id}/`, {
+          is_runnable: formData.is_machine_runnable
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+
+      // Handle file uploads if there are any files (only for authenticated users)
+      if (files.length > 0 && isAuthenticated) {
+        const remedyId = response.data.id;
         const uploadPromises = files.map(file => {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('file_type', file.type.startsWith('image/') ? 'image' : 'video');
-          formData.append('purpose', 'remedy_documentation');
-          return api.post(`/issues/${id}/add_attachment/`, formData, {
+          const fileFormData = new FormData();
+          fileFormData.append('file', file);
+          fileFormData.append('file_type', file.type.startsWith('image/') ? 'image' : 'video');
+          fileFormData.append('purpose', 'other');
+          return api.post(`/issues/${id}/remedies/${remedyId}/attachments/`, fileFormData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
         });
@@ -173,6 +192,8 @@ Parts/Items Guide:
           console.error('Error uploading remedy files:', uploadError);
           // Still navigate even if file upload fails
         }
+      } else if (files.length > 0 && !isAuthenticated) {
+        console.log('File uploads skipped for public users');
       }
 
       navigate(`/issues/${id}`);
@@ -196,8 +217,8 @@ Parts/Items Guide:
     const selectedFiles = Array.from(e.target.files || []);
     const totalFiles = files.length + selectedFiles.length;
     
-    if (totalFiles > 5) {
-      alert('Maximum 5 files allowed');
+    if (totalFiles > 10) {
+      alert('Maximum 10 files allowed');
       return;
     }
 
@@ -220,7 +241,9 @@ Parts/Items Guide:
   useEffect(() => {
     const fetchIssue = async () => {
       try {
-        const response = await api.get(`/issues/${id}`);
+        const response = isAuthenticated 
+          ? await api.get(`/issues/${id}`)
+          : await publicAPI.getIssue(id!);
         setIssue(response.data);
         setFormData(prev => ({
           ...prev,
@@ -476,7 +499,7 @@ Parts/Items Guide:
                       Total Cost
                     </label>
                     <div className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50 text-gray-900 font-medium">
-                      ${totalCost.toFixed(2)}
+                      RM {totalCost.toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -489,7 +512,7 @@ Parts/Items Guide:
           <p className="text-sm text-gray-600 mb-4">Upload photos or videos showing the remedy work (optional)</p>
           
           <div className="space-y-4">
-            {files.length < 5 && (
+            {files.length < 10 && (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
                 <div className="text-center">
                   <Camera className="mx-auto h-12 w-12 text-gray-400 mb-4" />
@@ -502,12 +525,12 @@ Parts/Items Guide:
                       id="file-upload"
                       type="file"
                       multiple
-                      accept="image/*,video/*"
+                      accept="image/*,video/*,.heic,.HEIC"
                       onChange={handleFileChange}
                       className="hidden"
                     />
                   </label>
-                  <p className="mt-2 text-sm text-gray-600">PNG, JPG, GIF, MP4, MOV up to 10MB each</p>
+                  <p className="mt-2 text-sm text-gray-600">PNG, JPG, HEIC, GIF, MP4, MOV up to 50MB each (max 10 files). HEIC will be converted to JPEG.</p>
                 </div>
               </div>
             )}

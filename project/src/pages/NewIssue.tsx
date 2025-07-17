@@ -54,16 +54,18 @@ const NewIssue: React.FC = () => {
   });
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-  const [alarmImage, setAlarmImage] = useState<File | null>(null);
-  const [alarmImagePreview, setAlarmImagePreview] = useState<string>('');
-  const [clickedCards, setClickedCards] = useState<Set<number>>(new Set());
+  const [clickedCards, setClickedCards] = useState(new Set<number>());
 
   const categories = [
-    'Alarm',
-    'Mechanical',
-    'Quality',
-    'Process',
-    'Other'
+    { label: 'Alarm', value: 'alarm' },
+    { label: 'Mechanical', value: 'mechanical' },
+    { label: 'Electrical', value: 'electrical' },
+    { label: 'Material Issue', value: 'material_issue' },
+    { label: 'Machine Setup', value: 'machine_setup' },
+    { label: 'No Planning', value: 'no_planning' },
+    { label: 'Quality', value: 'quality' },
+    { label: 'Process', value: 'process' },
+    { label: 'Other', value: 'other' }
   ];
 
   // Suggestion cards for common machine issues
@@ -159,29 +161,12 @@ const NewIssue: React.FC = () => {
     }));
   };
 
-  const handleAlarmImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      setAlarmImage(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAlarmImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removeAlarmImage = () => {
-    setAlarmImage(null);
-    setAlarmImagePreview('');
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     const totalFiles = files.length + selectedFiles.length;
     
-    if (totalFiles > 5) {
-      alert('Maximum 5 files allowed');
+    if (totalFiles > 10) {
+      alert('Maximum 10 files allowed');
       return;
     }
 
@@ -290,42 +275,28 @@ const NewIssue: React.FC = () => {
       const issueId = response.data.id;
 
       // Handle file uploads separately if there are any files
-      if (alarmImage || files.length > 0) {
-        const uploadPromises = [];
-
-        // Upload alarm image
-        if (alarmImage) {
-          const formData = new FormData();
-          formData.append('file', alarmImage);
-          formData.append('file_type', 'image');
-          formData.append('purpose', 'alarm_screen');
-          uploadPromises.push(
-            api.post(`/issues/${issueId}/add_attachment/`, formData, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            })
-          );
-        }
-
-        // Upload other media files
-        files.forEach(file => {
+      if (files.length > 0) {
+        const uploadPromises = files.map(async (file) => {
           const formData = new FormData();
           formData.append('file', file);
           formData.append('file_type', file.type.startsWith('image/') ? 'image' : 'video');
           formData.append('purpose', 'other');
-          uploadPromises.push(
-            api.post(`/issues/${issueId}/add_attachment/`, formData, {
+
+          try {
+            const uploadResponse = await api.post(`/issues/${issueId}/add_attachment/`, formData, {
               headers: { 'Content-Type': 'multipart/form-data' }
-            })
-          );
+            });
+            console.log(`Uploaded ${file.name}:`, uploadResponse.data);
+          } catch (error) {
+            console.error(`Failed to upload ${file.name}:`, error);
+          }
         });
 
-        // Wait for all uploads to complete
         try {
           await Promise.all(uploadPromises);
           console.log('All files uploaded successfully');
-        } catch (uploadError) {
-          console.error('Error uploading files:', uploadError);
-          // Still navigate to the issue even if file upload fails
+        } catch (error) {
+          console.error('Some files failed to upload:', error);
         }
       }
 
@@ -415,8 +386,8 @@ const NewIssue: React.FC = () => {
               >
                 <option value="">Select a category</option>
                 {categories.map(category => (
-                  <option key={category} value={category.toLowerCase()}>
-                    {category}
+                  <option key={category.value} value={category.value}>
+                    {category.label}
                   </option>
                 ))}
               </select>
@@ -504,47 +475,6 @@ const NewIssue: React.FC = () => {
                 className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-            
-            {/* Alarm Image Upload */}
-            <div className="mt-3">
-              <p className="text-sm text-gray-600 mb-2">Or upload alarm screen image for OCR reading:</p>
-              {!alarmImagePreview ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                  <div className="text-center">
-                    <FileImage className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                    <label htmlFor="alarm-image-upload" className="cursor-pointer">
-                      <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-sm hover:bg-blue-200 transition-colors inline-flex items-center space-x-1">
-                        <Camera className="h-3 w-3" />
-                        <span>Upload Alarm Screen</span>
-                      </span>
-                      <input
-                        id="alarm-image-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAlarmImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                    <p className="mt-1 text-xs text-gray-500">PNG, JPG up to 5MB</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="relative inline-block">
-                  <img
-                    src={alarmImagePreview}
-                    alt="Alarm screen"
-                    className="h-20 w-auto rounded border"
-                  />
-                  <button
-                    type="button"
-                    onClick={removeAlarmImage}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Description Section with AI Refine */}
@@ -610,10 +540,10 @@ const NewIssue: React.FC = () => {
         {/* Media Upload Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Additional Media Attachments</h2>
-          <p className="text-sm text-gray-600 mb-4">Upload up to 5 photos or videos to help document the issue</p>
+          <p className="text-sm text-gray-600 mb-4">Upload up to 10 photos or videos to help document the issue</p>
           
           <div className="space-y-4">
-            {files.length < 5 && (
+            {files.length < 10 && (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
                 <div className="text-center">
                   <Camera className="mx-auto h-12 w-12 text-gray-400 mb-4" />
@@ -626,12 +556,12 @@ const NewIssue: React.FC = () => {
                       id="file-upload"
                       type="file"
                       multiple
-                      accept="image/*,video/*"
+                      accept="image/*,video/*,.heic,.HEIC"
                       onChange={handleFileChange}
                       className="hidden"
                     />
                   </label>
-                  <p className="mt-2 text-sm text-gray-600">PNG, JPG, GIF, MP4, MOV up to 10MB each</p>
+                  <p className="mt-2 text-sm text-gray-600">Images and videos up to 50MB each. HEIC will be converted to JPEG.</p>
                 </div>
               </div>
             )}

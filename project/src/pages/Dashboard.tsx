@@ -12,6 +12,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DashboardMetrics {
   total_issues: number;
@@ -46,6 +47,7 @@ interface Department {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
@@ -54,8 +56,20 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState('');
 
   const fetchMetrics = async () => {
+    // Double-check authentication before making API call
+    if (!isAuthenticated) {
+      console.log('Dashboard: User not authenticated, skipping metrics fetch');
+      setError('Please log in to view dashboard metrics');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    setError('');
+    
     try {
+      console.log('Dashboard: Fetching metrics for authenticated user:', user?.username);
+      
       const params = new URLSearchParams({
         days: selectedDays.toString()
       });
@@ -64,11 +78,29 @@ const Dashboard: React.FC = () => {
         params.append('department', selectedDepartment);
       }
 
+      console.log('Dashboard: Making API call to /dashboard/metrics/');
       const response = await api.get(`/dashboard/metrics/?${params}`);
+      
+      console.log('Dashboard: Metrics response received:', response.status);
       setMetrics(response.data);
-    } catch (error) {
-      console.error('Failed to fetch metrics:', error);
-      setError('Failed to load dashboard metrics');
+      
+    } catch (error: any) {
+      console.error('Dashboard: Failed to fetch metrics:', error);
+      console.log('Dashboard: Current auth state - isAuthenticated:', isAuthenticated, 'user:', user);
+      
+      let errorMessage = 'Failed to load dashboard metrics';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Authentication expired. Please log in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to view dashboard metrics';
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = `Network error: ${error.message}`;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -87,13 +119,54 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDepartments();
-  }, []);
+    // Only fetch data when user is authenticated and auth is not loading
+    if (isAuthenticated && !authLoading) {
+      fetchDepartments();
+    }
+  }, [isAuthenticated, authLoading]);
 
   useEffect(() => {
-    fetchMetrics();
-  }, [selectedDepartment, selectedDays]);
+    // Only fetch metrics when user is authenticated and auth is not loading
+    if (isAuthenticated && !authLoading) {
+      fetchMetrics();
+    }
+  }, [selectedDepartment, selectedDays, isAuthenticated, authLoading]);
 
+  // Show loading while authentication is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-2 text-sm text-gray-600">Checking authentication...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't aggressively redirect - let AuthContext handle this
+  if (!isAuthenticated && !authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-12">
+            <AlertTriangle className="h-8 w-8 text-red-500 mx-auto" />
+            <p className="mt-2 text-sm text-red-600">Please log in to view the dashboard</p>
+            <button
+              onClick={() => navigate('/login')}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading for dashboard data
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -103,7 +176,7 @@ const Dashboard: React.FC = () => {
             <p className="mt-2 text-sm text-gray-600">Loading dashboard...</p>
           </div>
         </div>
-      </div>
+              </div>
     );
   }
 
@@ -128,7 +201,7 @@ const Dashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header with Filters */}
-        <div className="mb-8">
+      <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Machine Maintenance Dashboard</h1>
@@ -152,8 +225,8 @@ const Dashboard: React.FC = () => {
                     </option>
                   ))}
                 </select>
-              </div>
-              
+      </div>
+
               <select
                 value={selectedDays}
                 onChange={(e) => setSelectedDays(parseInt(e.target.value))}
@@ -193,7 +266,7 @@ const Dashboard: React.FC = () => {
                 <p className="text-2xl font-bold text-gray-900">{metrics.open_issues}</p>
               </div>
             </div>
-          </div>
+                </div>
 
           <div 
             className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
@@ -206,7 +279,7 @@ const Dashboard: React.FC = () => {
                 <p className="text-2xl font-bold text-gray-900">{metrics.resolved_issues}</p>
               </div>
             </div>
-          </div>
+      </div>
 
           <div 
             className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
@@ -240,7 +313,7 @@ const Dashboard: React.FC = () => {
                 <DollarSign className="h-8 w-8 text-red-500" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Total Cost</p>
-                  <p className="text-2xl font-bold text-gray-900">${metrics.total_cost.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-gray-900">RM {metrics.total_cost.toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -253,15 +326,15 @@ const Dashboard: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Daily Issues Trend</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={metrics.daily_trend}>
-                <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
                 <Tooltip />
                 <Bar dataKey="issues" fill="#3B82F6" name="New Issues" />
                 <Bar dataKey="resolved" fill="#10B981" name="Resolved" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
           {/* Department Cost Pie Chart */}
           {metrics.total_cost !== undefined && (
@@ -277,7 +350,7 @@ const Dashboard: React.FC = () => {
                     fill="#8884d8"
                     dataKey="total_cost"
                     nameKey="name"
-                    label={({ name, value }) => `${name}: $${Number(value).toFixed(0)}`}
+                    label={({ name, value }) => `${name}: RM ${Number(value).toFixed(0)}`}
                   >
                     {metrics.department_breakdown.filter(dept => dept.total_cost && dept.total_cost > 0).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={[
@@ -286,7 +359,7 @@ const Dashboard: React.FC = () => {
                       ][index % 8]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [`$${Number(value).toFixed(2)}`, 'Total Cost']} />
+                  <Tooltip formatter={(value) => [`RM ${Number(value).toFixed(2)}`, 'Total Cost']} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -301,8 +374,8 @@ const Dashboard: React.FC = () => {
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-medium text-gray-900">{dept.name}</h4>
                     <span className="text-sm text-gray-500">{dept.department_id}</span>
-                  </div>
-                  
+      </div>
+
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600">Total Issues:</span>
@@ -323,7 +396,7 @@ const Dashboard: React.FC = () => {
                     {dept.total_cost !== undefined && (
                       <div className="col-span-2">
                         <span className="text-gray-600">Total Cost:</span>
-                        <span className="ml-2 font-medium text-red-600">${dept.total_cost.toFixed(2)}</span>
+                        <span className="ml-2 font-medium text-red-600">RM {dept.total_cost.toFixed(2)}</span>
                       </div>
                     )}
                   </div>

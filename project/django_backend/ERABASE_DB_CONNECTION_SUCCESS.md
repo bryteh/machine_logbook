@@ -7,7 +7,7 @@ Your Django machine maintenance logbook is now **SUCCESSFULLY CONNECTED** to you
 ## What's Working:
 
 ### ✅ Database Connection
-- **Database**: Connected to `../../../erabase_db` (SQLite)
+- **Database**: Connected to PostgreSQL `erabase_db` database
 - **Manufacturing Tables**: Successfully reading from existing `manufacturing_department` and `manufacturing_machine` tables
 - **Real Data**: Using your actual ERP manufacturing data
 
@@ -75,9 +75,9 @@ The Django models use `managed = False` so they won't modify your existing manuf
 ## Current Setup:
 
 ### Database Configuration
-- **Type**: SQLite (your existing erabase_db)
-- **Path**: `C:/Users/admin/OneDrive/Desktop/AI/erabase_erp/erabase_db`
-- **Django Settings**: Using `'../../../erabase_db'` relative path
+- **Type**: PostgreSQL (your existing erabase_db)
+- **Host**: localhost:5432
+- **Django Settings**: Using PostgreSQL connection with erabase_user credentials
 
 ### Model Configuration
 - **ManufacturingDepartment**: Connected to existing `manufacturing_department` table
@@ -112,4 +112,4 @@ Visit these URLs to confirm everything is working:
 ✅ **COMPLETED**: Sample data populated for testing
 🔄 **NEXT**: Frontend integration and real data usage
 
-Your machine maintenance logbook is now successfully integrated with your existing ERP database! 🎉 
+Your machine maintenance logbook is now successfully integrated with your existing ERP database! 🎉

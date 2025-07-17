@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real Frontend Authentication Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .warning { color: orange; font-weight: bold; }
+        .info { color: blue; }
+        button { background: #007cba; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #005a87; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 200px; }
+        .results { margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 4px; font-family: monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        .step { margin: 10px 0; padding: 10px; background: #f0f8ff; border-left: 4px solid #007cba; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Real Frontend Authentication Test</h1>
+        <p class="info">This test mimics exactly what your React frontend does to authenticate with the backend.</p>
+        
+        <div class="test-section">
+            <h2>Step 1: Server Status Check</h2>
+            <button onclick="checkServers()">Check Both Servers</button>
+            <div id="server-status" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Step 2: Clear Browser Session</h2>
+            <button onclick="clearSession()">Clear All Cookies & Session</button>
+            <div id="clear-status" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Step 3: Test Frontend Login Flow</h2>
+            <div>
+                <input type="text" id="username" placeholder="Username" value="admin">
+                <input type="password" id="password" placeholder="Password" value="admin123">
+                <button onclick="testFrontendLogin()">Test Login (Like React App)</button>
+            </div>
+            <div id="login-status" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Step 4: Test AuthContext User Check</h2>
+            <button onclick="testUserCheck()">Test /auth/user/ (Like AuthContext)</button>
+            <div id="user-status" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Step 5: Test Dashboard API Call</h2>
+            <button onclick="testDashboardCall()">Test Dashboard API (Exact Same as React)</button>
+            <div id="dashboard-status" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Step 6: Debug Session Cookies</h2>
+            <button onclick="debugCookies()">Show Current Session State</button>
+            <div id="cookie-debug" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Final Test: Complete Flow</h2>
+            <button onclick="runCompleteFlow()" id="complete-test-btn">Run Complete Authentication Flow</button>
+            <div id="complete-results" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Instructions</h2>
+            <div class="step">
+                <strong>1.</strong> First, check if both servers are running
+            </div>
+            <div class="step">
+                <strong>2.</strong> Clear browser session to start fresh
+            </div>
+            <div class="step">
+                <strong>3.</strong> Test login exactly like your React app does
+            </div>
+            <div class="step">
+                <strong>4.</strong> If all tests pass, your React app should work
+            </div>
+            <div class="step">
+                <strong>5.</strong> Go to <a href="http://127.0.0.1:5173" target="_blank">http://127.0.0.1:5173</a> and try again
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+        const FRONTEND_URL = 'http://127.0.0.1:5173';
+
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const typeEmoji = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+            element.innerHTML += `[${timestamp}] ${typeEmoji} ${message}\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        async function checkServers() {
+            const statusDiv = document.getElementById('server-status');
+            statusDiv.innerHTML = '';
+            
+            // Check Django backend
+            try {
+                const response = await fetch('http://127.0.0.1:8000/', { method: 'GET', mode: 'no-cors' });
+                log('server-status', 'Django Backend (8000): RUNNING', 'success');
+            } catch (error) {
+                log('server-status', 'Django Backend (8000): NOT RUNNING', 'error');
+            }
+
+            // Check React frontend
+            try {
+                const response = await fetch(FRONTEND_URL, { method: 'GET', mode: 'no-cors' });
+                log('server-status', 'React Frontend (5173): RUNNING', 'success');
+            } catch (error) {
+                log('server-status', 'React Frontend (5173): NOT RUNNING', 'error');
+                log('server-status', 'React server must be started manually!', 'warning');
+            }
+
+            // Check API endpoint
+            try {
+                const response = await fetch(`${API_BASE}/issues/`, { credentials: 'include' });
+                if (response.ok) {
+                    log('server-status', 'Django API: RESPONDING', 'success');
+                } else {
+                    log('server-status', `Django API: ERROR ${response.status}`, 'warning');
+                }
+            } catch (error) {
+                log('server-status', 'Django API: UNREACHABLE', 'error');
+            }
+        }
+
+        function clearSession() {
+            // Clear all cookies
+            document.cookie.split(";").forEach(function(c) { 
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+            });
+            
+            // Clear specific session cookies for different domains
+            const cookies = ['sessionid', 'csrftoken'];
+            const domains = ['127.0.0.1', '.127.0.0.1', 'localhost', '.localhost'];
+            
+            cookies.forEach(name => {
+                domains.forEach(domain => {
+                    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${domain}`;
+                });
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+            });
+            
+            // Clear localStorage and sessionStorage
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            log('clear-status', 'All cookies and storage cleared', 'success');
+            log('clear-status', 'Browser session has been reset', 'info');
+        }
+
+        async function testFrontendLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const statusDiv = document.getElementById('login-status');
+            statusDiv.innerHTML = '';
+
+            try {
+                log('login-status', 'Starting login test...', 'info');
+                
+                // This mimics exactly what the React frontend does
+                const response = await fetch(`${API_BASE}/auth/login/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include', // This is crucial!
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log('login-status', `Login successful! User: ${data.user.username}`, 'success');
+                    log('login-status', `Is superuser: ${data.user.is_superuser}`, 'info');
+                    log('login-status', 'Session cookies should now be set', 'success');
+                    return true;
+                } else {
+                    const errorData = await response.json();
+                    log('login-status', `Login failed: ${response.status}`, 'error');
+                    log('login-status', `Error: ${JSON.stringify(errorData)}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                log('login-status', `Network error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testUserCheck() {
+            const statusDiv = document.getElementById('user-status');
+            statusDiv.innerHTML = '';
+
+            try {
+                log('user-status', 'Testing /auth/user/ endpoint...', 'info');
+                
+                const response = await fetch(`${API_BASE}/auth/user/`, {
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    log('user-status', `User check successful: ${userData.username}`, 'success');
+                    log('user-status', `User data: ${JSON.stringify(userData, null, 2)}`, 'info');
+                    return true;
+                } else {
+                    log('user-status', `User check failed: ${response.status}`, 'error');
+                    if (response.status === 401) {
+                        log('user-status', 'Session expired or not authenticated', 'warning');
+                    }
+                    return false;
+                }
+            } catch (error) {
+                log('user-status', `Network error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testDashboardCall() {
+            const statusDiv = document.getElementById('dashboard-status');
+            statusDiv.innerHTML = '';
+
+            try {
+                log('dashboard-status', 'Testing dashboard API (exact same call as React)...', 'info');
+                
+                const response = await fetch(`${API_BASE}/dashboard/metrics/?days=30`, {
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const metrics = await response.json();
+                    log('dashboard-status', 'Dashboard API successful!', 'success');
+                    log('dashboard-status', `Total issues: ${metrics.total_issues}`, 'info');
+                    log('dashboard-status', `Open issues: ${metrics.open_issues}`, 'info');
+                    log('dashboard-status', 'This should work in React too!', 'success');
+                    return true;
+                } else {
+                    const errorData = await response.json();
+                    log('dashboard-status', `Dashboard API failed: ${response.status}`, 'error');
+                    log('dashboard-status', `Error: ${JSON.stringify(errorData)}`, 'error');
+                    
+                    if (response.status === 401) {
+                        log('dashboard-status', 'This is the EXACT error you see in React!', 'warning');
+                    }
+                    return false;
+                }
+            } catch (error) {
+                log('dashboard-status', `Network error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        function debugCookies() {
+            const statusDiv = document.getElementById('cookie-debug');
+            statusDiv.innerHTML = '';
+
+            log('cookie-debug', 'Current cookies:', 'info');
+            const cookies = document.cookie;
+            if (cookies) {
+                cookies.split(';').forEach(cookie => {
+                    log('cookie-debug', `  ${cookie.trim()}`, 'info');
+                });
+            } else {
+                log('cookie-debug', '  No cookies found', 'warning');
+            }
+
+            log('cookie-debug', '\nCurrent URL: ' + window.location.href, 'info');
+            log('cookie-debug', 'Domain: ' + window.location.hostname, 'info');
+            log('cookie-debug', 'Port: ' + window.location.port, 'info');
+        }
+
+        async function runCompleteFlow() {
+            const button = document.getElementById('complete-test-btn');
+            const statusDiv = document.getElementById('complete-results');
+            statusDiv.innerHTML = '';
+            button.disabled = true;
+
+            try {
+                log('complete-results', '🚀 Starting complete authentication flow test...', 'info');
+                
+                // Step 1: Clear session
+                log('complete-results', '\n1. Clearing session...', 'info');
+                clearSession();
+                
+                // Step 2: Test login
+                log('complete-results', '\n2. Testing login...', 'info');
+                const loginSuccess = await testFrontendLogin();
+                if (!loginSuccess) {
+                    log('complete-results', 'FLOW FAILED: Login failed', 'error');
+                    return;
+                }
+                
+                // Step 3: Test user check
+                log('complete-results', '\n3. Testing user authentication...', 'info');
+                const userSuccess = await testUserCheck();
+                if (!userSuccess) {
+                    log('complete-results', 'FLOW FAILED: User check failed', 'error');
+                    return;
+                }
+                
+                // Step 4: Test dashboard
+                log('complete-results', '\n4. Testing dashboard API...', 'info');
+                const dashboardSuccess = await testDashboardCall();
+                if (!dashboardSuccess) {
+                    log('complete-results', 'FLOW FAILED: Dashboard failed', 'error');
+                    return;
+                }
+                
+                log('complete-results', '\n🎉 COMPLETE FLOW SUCCESS!', 'success');
+                log('complete-results', 'Your React app should work now!', 'success');
+                log('complete-results', 'Go to http://127.0.0.1:5173 and try logging in', 'info');
+                
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        // Auto-run server check when page loads
+        document.addEventListener('DOMContentLoaded', checkServers);
+    </script>
+</body>
+</html> 

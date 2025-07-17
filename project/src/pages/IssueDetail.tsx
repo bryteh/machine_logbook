@@ -112,28 +112,43 @@ const IssueDetail: React.FC = () => {
     }
   };
 
+  // Fetch only downtime data for real-time updates
+  const fetchDowntime = async () => {
+    try {
+      const response = await api.get(`/issues/${id}/`);
+      if (issue && response.data.downtime_hours !== issue.downtime_hours) {
+        setIssue(prev => prev ? {
+          ...prev,
+          downtime_hours: response.data.downtime_hours
+        } : null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch downtime:', error);
+    }
+  };
+
   useEffect(() => {
     if (id) {
       fetchIssue();
     }
   }, [id]);
 
-  // Auto-refresh for real-time downtime updates
+  // Auto-refresh for real-time downtime updates - only update downtime, not entire page
   useEffect(() => {
-    if (!issue || issue.is_runnable || !['open', 'in_progress', 'on_hold'].includes(issue.status)) {
+    if (!issue || issue.is_runnable || issue.status !== 'in_progress') {
       return;
     }
 
     const interval = setInterval(() => {
-      fetchIssue();
-    }, 5000); // Refresh every 5 seconds
+      fetchDowntime(); // Only fetch downtime data, not entire issue
+    }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
   }, [issue?.is_runnable, issue?.status, id]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     if (!issue) return;
-
+    
     setUpdating(true);
     try {
       const response = await api.patch(`/issues/${id}/update_status/`, {
@@ -215,7 +230,7 @@ const IssueDetail: React.FC = () => {
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back to Issues
-            </Link>
+        </Link>
           </div>
         </div>
       </div>
@@ -228,10 +243,10 @@ const IssueDetail: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white shadow-lg rounded-lg">
-          {/* Header */}
+      {/* Header */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4">
                 <Link
                   to="/issues"
                   className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
@@ -239,17 +254,17 @@ const IssueDetail: React.FC = () => {
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Back to Issues
                 </Link>
-                <div>
+          <div>
                   <h1 className="text-2xl font-bold text-gray-900">
                     {issue.auto_title || 'Issue Details'}
                   </h1>
                   <p className="text-sm text-gray-600">
                     {issue.machine.model} • {issue.department.name}
                   </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3">
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-3">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(issue.priority)}`}>
                   {issue.priority}
                 </span>
@@ -258,8 +273,8 @@ const IssueDetail: React.FC = () => {
                   <span className="ml-1">{issue.status.replace('_', ' ')}</span>
                 </span>
               </div>
+              </div>
             </div>
-          </div>
 
           {/* Issue Information */}
           <div className="px-6 py-6 border-b border-gray-200">
@@ -297,7 +312,7 @@ const IssueDetail: React.FC = () => {
                     <dt className="text-sm font-medium text-gray-500">Reported By</dt>
                     <dd className="mt-1 text-sm text-gray-900">{issue.reported_by}</dd>
                   </div>
-                  <div>
+                <div>
                     <dt className="text-sm font-medium text-gray-500">Created</dt>
                     <dd className="mt-1 text-sm text-gray-900">{formatDateTime(issue.created_at)}</dd>
                   </div>
@@ -305,17 +320,17 @@ const IssueDetail: React.FC = () => {
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Downtime</dt>
                       <dd className="mt-1 text-sm text-gray-900">{issue.downtime_hours.toFixed(4)} hours</dd>
-                    </div>
-                  )}
+                </div>
+              )}
                   {totalCost > 0 && (
-                    <div>
+                <div>
                       <dt className="text-sm font-medium text-gray-500">Total Cost</dt>
                       <dd className="mt-1 text-sm text-gray-900 font-medium text-red-600">
                         <DollarSign className="h-4 w-4 inline mr-1" />
                         ${totalCost.toFixed(2)}
                       </dd>
-                    </div>
-                  )}
+                </div>
+              )}
                 </dl>
               </div>
             </div>
@@ -323,15 +338,15 @@ const IssueDetail: React.FC = () => {
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-500 mb-2">Description</h3>
               <p className="text-sm text-gray-900 bg-gray-50 p-4 rounded-md">{issue.description}</p>
-            </div>
+          </div>
 
             {issue.ai_summary && (
               <div className="mt-6">
                 <h3 className="text-sm font-medium text-gray-500 mb-2">AI Summary</h3>
                 <p className="text-sm text-gray-900 bg-blue-50 p-4 rounded-md">{issue.ai_summary}</p>
-              </div>
-            )}
-          </div>
+                        </div>
+                      )}
+                    </div>
 
           {/* Issue Media Attachments */}
           {issue.attachments && issue.attachments.length > 0 && (
@@ -396,7 +411,7 @@ const IssueDetail: React.FC = () => {
                 </button>
               )}
             </div>
-          </div>
+                      </div>
 
           {/* Remedies Section */}
           <div className="px-6 py-6">
@@ -411,7 +426,7 @@ const IssueDetail: React.FC = () => {
                 <Plus className="h-4 w-4 mr-2" />
                 Add Remedy
               </Link>
-            </div>
+                      </div>
 
             {issue.remedies.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -439,7 +454,7 @@ const IssueDetail: React.FC = () => {
                               <User className="h-5 w-5 text-blue-600" />
                             }
                           </div>
-                        </div>
+              </div>
                         <div>
                           <h4 className="text-lg font-medium text-gray-900">
                             {remedy.technician_display_name || remedy.technician_name}
@@ -455,21 +470,21 @@ const IssueDetail: React.FC = () => {
                                 <Phone className="h-3 w-3 mr-1" />
                                 {remedy.phone_display}
                               </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+            )}
+          </div>
+        </div>
+              </div>
                       <span className="text-sm text-gray-500">
                         {formatDateTime(remedy.created_at)}
                       </span>
-                    </div>
+          </div>
 
                     <div className="mb-4">
                       <h5 className="text-sm font-medium text-gray-900 mb-2">Remedy Description</h5>
                       <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-md">
                         {remedy.description}
                       </p>
-                    </div>
+              </div>
 
                     {remedy.parts_purchased && (
                       <div className="mb-4">
@@ -480,7 +495,7 @@ const IssueDetail: React.FC = () => {
                         <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-md">
                           {remedy.parts_purchased}
                         </p>
-                      </div>
+                  </div>
                     )}
 
                     {/* Remedy Media Attachments */}
@@ -490,8 +505,8 @@ const IssueDetail: React.FC = () => {
                           attachments={remedy.attachments} 
                           title="Remedy Media" 
                         />
-                      </div>
-                    )}
+                </div>
+              )}
 
                     {remedy.cost_display && (
                       <div className="bg-green-50 p-4 rounded-md">
@@ -511,18 +526,19 @@ const IssueDetail: React.FC = () => {
                             <span className="ml-2 font-medium">
                               ${remedy.cost_display.parts_cost?.toFixed(2) || '0.00'}
                             </span>
-                          </div>
-                          <div>
+                  </div>
+                  <div>
                             <span className="text-gray-600">Total:</span>
                             <span className="ml-2 font-medium text-green-600">
                               ${remedy.cost_display.total_cost?.toFixed(2) || '0.00'}
                             </span>
                           </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                ))}
+                </div>
+              )}
+            </div>
+                  )
+                )}
               </div>
             )}
           </div>
